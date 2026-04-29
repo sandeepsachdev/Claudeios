@@ -14,86 +14,110 @@ struct ContentView: View {
 
     var body: some View {
         NavigationView {
-            VStack(spacing: 0) {
-                CategoryFilterView(selectedCategory: $selectedCategory)
-                    .background(Color(.systemBackground))
-
-                Divider()
-
-                ZStack {
-                    if viewMode == .map {
-                        NearbyMapView(
-                            places: searchManager.places,
-                            userLocation: locationManager.location?.coordinate,
-                            selectedPlace: $selectedPlace
-                        )
-                        .ignoresSafeArea(edges: .bottom)
-                    } else {
-                        PlaceListView(
-                            places: searchManager.places,
-                            userLocation: locationManager.location,
-                            selectedPlace: $selectedPlace
-                        )
-                        .background(Color(.systemGroupedBackground))
-                    }
-
-                    if searchManager.isSearching {
-                        VStack {
-                            Spacer()
-                            HStack(spacing: 10) {
-                                ProgressView().tint(.white)
-                                Text("Searching nearby…")
-                                    .font(.subheadline)
-                                    .foregroundColor(.white)
-                            }
-                            .padding(.horizontal, 18)
-                            .padding(.vertical, 12)
-                            .background(Color.black.opacity(0.72))
-                            .cornerRadius(22)
-                            .padding(.bottom, 24)
-                        }
-                    }
-
-                    if locationManager.authorizationStatus == .denied ||
-                       locationManager.authorizationStatus == .restricted {
-                        LocationPermissionView()
+            mainContent
+                .navigationTitle("Nearby Places")
+                .navigationBarTitleDisplayMode(.large)
+                .toolbar {
+                    toolbarContent
+                }
+                .onChange(of: selectedCategory) { _ in performSearch() }
+                .onChange(of: locationManager.location) { newLoc in
+                    guard searchManager.places.isEmpty, newLoc != nil else { return }
+                    performSearch()
+                }
+                .onChange(of: selectedPlace) { place in
+                    if place != nil { showDetail = true }
+                }
+                .sheet(isPresented: $showDetail, onDismiss: { selectedPlace = nil }) {
+                    if let place = selectedPlace {
+                        PlaceDetailView(place: place)
                     }
                 }
-            }
-            .navigationTitle("Nearby Places")
-            .navigationBarTitleDisplayMode(.large)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button(action: performSearch) {
-                        Image(systemName: "arrow.clockwise")
-                    }
-                    .disabled(locationManager.location == nil)
+                .onAppear {
+                    locationManager.requestPermission()
                 }
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Picker("View Mode", selection: $viewMode) {
-                        Image(systemName: "map").tag(ViewMode.map)
-                        Image(systemName: "list.bullet").tag(ViewMode.list)
-                    }
-                    .pickerStyle(.segmented)
-                    .frame(width: 84)
-                }
+        }
+    }
+    
+    @ViewBuilder
+    private var mainContent: some View {
+        VStack(spacing: 0) {
+            CategoryFilterView(selectedCategory: $selectedCategory)
+                .background(Color(.systemBackground))
+
+            Divider()
+
+            contentArea
+        }
+    }
+    
+    @ViewBuilder
+    private var contentArea: some View {
+        ZStack {
+            viewContent
+            
+            if searchManager.isSearching {
+                searchingOverlay
             }
-            .onChange(of: selectedCategory) { _ in performSearch() }
-            .onChange(of: locationManager.location) { newLoc in
-                guard searchManager.places.isEmpty, newLoc != nil else { return }
-                performSearch()
+
+            if locationManager.authorizationStatus == .denied ||
+               locationManager.authorizationStatus == .restricted {
+                LocationPermissionView()
             }
-            .onChange(of: selectedPlace) { place in
-                if place != nil { showDetail = true }
+        }
+    }
+    
+    @ViewBuilder
+    private var viewContent: some View {
+        if viewMode == .map {
+            NearbyMapView(
+                places: searchManager.places,
+                userLocation: locationManager.location?.coordinate,
+                selectedPlace: $selectedPlace
+            )
+            .ignoresSafeArea(edges: .bottom)
+        } else {
+            PlaceListView(
+                places: searchManager.places,
+                userLocation: locationManager.location,
+                selectedPlace: $selectedPlace
+            )
+            .background(Color(.systemGroupedBackground))
+        }
+    }
+    
+    private var searchingOverlay: some View {
+        VStack {
+            Spacer()
+            HStack(spacing: 10) {
+                ProgressView().tint(.white)
+                Text("Searching nearby…")
+                    .font(.subheadline)
+                    .foregroundColor(.white)
             }
-            .sheet(isPresented: $showDetail, onDismiss: { selectedPlace = nil }) {
-                if let place = selectedPlace {
-                    PlaceDetailView(place: place)
-                }
+            .padding(.horizontal, 18)
+            .padding(.vertical, 12)
+            .background(Color.black.opacity(0.72))
+            .cornerRadius(22)
+            .padding(.bottom, 24)
+        }
+    }
+    
+    @ToolbarContentBuilder
+    private var toolbarContent: some ToolbarContent {
+        ToolbarItem(placement: .navigationBarLeading) {
+            Button(action: performSearch) {
+                Image(systemName: "arrow.clockwise")
             }
-            .onAppear {
-                locationManager.requestPermission()
+            .disabled(locationManager.location == nil)
+        }
+        ToolbarItem(placement: .navigationBarTrailing) {
+            Picker("View Mode", selection: $viewMode) {
+                Image(systemName: "map").tag(ViewMode.map)
+                Image(systemName: "list.bullet").tag(ViewMode.list)
             }
+            .pickerStyle(.segmented)
+            .frame(width: 84)
         }
     }
 

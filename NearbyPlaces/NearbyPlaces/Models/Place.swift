@@ -1,7 +1,7 @@
 import Foundation
 import MapKit
 
-struct Place: Identifiable {
+struct Place: Identifiable, Equatable {
     let id = UUID()
     let mapItem: MKMapItem
 
@@ -24,5 +24,9 @@ struct Place: Identifiable {
             .components(separatedBy: ".")
             .last?
             .capitalized ?? "Place"
+    }
+    
+    static func == (lhs: Place, rhs: Place) -> Bool {
+        lhs.id == rhs.id
     }
 }
